@@ -2,9 +2,11 @@
 
 import re
 import sys
+from urllib.parse import quote
 
-# from urllib.parse import quote
 import requests
+from requests.exceptions import RequestException, HTTPError
+
 from fake_useragent import UserAgent
 from lxml import etree
 
@@ -14,10 +16,18 @@ def get_tree(kwd: str, isEng=True) -> str:
     user_agent = ua.random
     headers = {"User-Agent": user_agent}
     pattern = "&transto=zh-CHS"
-    r = requests.get(
-        f"https://fanyi.sogou.com/text?keyword={kwd}&transfrom=auto{pattern}&model=general",
-        headers=headers,
-    )
+    try:
+        r = requests.get(
+            f"https://fanyi.sogou.com/text?keyword={kwd}&transfrom=auto{pattern}&model=general",
+            headers=headers,
+        )
+        r.raise_for_status() # get status code
+    except HTTPError as http_err:
+        print(f"error {http_err}")
+        exit()
+    except RequestException as err:
+        print(f"an error occur: {err}")
+        exit()
     # print(r.text)
     parser = etree.HTMLParser()
     tree = etree.fromstring(r.text, parser)
@@ -76,12 +86,11 @@ def main():
         print("Usage: trans <kwd>")
         exit(-1)
     word = argv[1]
-    if re.match(r"[\u4e00-\u9fa5]", word):
-        chn2eng(word)
-    elif word.isalnum():
+    word = quote(word)
+    if word[0].isalnum():
         eng2chn(argv[1])
     else:
-        print("no result...")
+        chn2eng(word)
 
 
 if __name__ == "__main__":
