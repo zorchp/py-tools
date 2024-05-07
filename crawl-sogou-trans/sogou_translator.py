@@ -1,6 +1,7 @@
 #!/opt/homebrew/Caskroom/miniforge/base/envs/py3x/bin/python3
 
 import re
+import os
 import sys
 from urllib.parse import quote
 
@@ -21,13 +22,13 @@ def get_tree(kwd: str, isEng=True) -> str:
             f"https://fanyi.sogou.com/text?keyword={kwd}&transfrom=auto{pattern}&model=general",
             headers=headers,
         )
-        r.raise_for_status() # get status code
+        r.raise_for_status()  # get status code
     except HTTPError as http_err:
         print(f"error {http_err}")
-        exit()
+        exit(1)
     except RequestException as err:
         print(f"an error occur: {err}")
-        exit()
+        exit(2)
     # print(r.text)
     parser = etree.HTMLParser()
     tree = etree.fromstring(r.text, parser)
@@ -52,6 +53,9 @@ def eng2chn(kwd):
     if pronounce == []:
         return
     syms = pronounce[0].xpath('./div[@class="item"]/span/text()')
+    if len(syms) == 1:
+        print(syms[0])
+        return
     print(f"{syms[0]}, {syms[1]}")
     print()
 
@@ -82,16 +86,25 @@ def chn2eng(kwd: str):
 
 def main():
     argv = sys.argv
-    if len(argv) != 2:
+    if len(argv) < 2:
         print("Usage: trans <kwd>")
         exit(-1)
-    word = argv[1]
-    word = quote(word)
-    if word[0].isalnum():
-        eng2chn(argv[1])
+    sentence=""
+    for i in range(1, len(argv)):
+        sentence +=argv[i]
+    sentence = quote(sentence)
+    if sentence[0].isalnum():
+        eng2chn(sentence)
     else:
-        chn2eng(word)
+        chn2eng(sentence)
 
 
 if __name__ == "__main__":
+    if "http_proxy" in os.environ:
+        del os.environ["http_proxy"]
+    if "https_proxy" in os.environ:
+        del os.environ["https_proxy"]
+    if "all_proxy" in os.environ:
+        del os.environ["all_proxy"]
+
     main()
