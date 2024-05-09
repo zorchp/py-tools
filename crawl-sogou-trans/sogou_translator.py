@@ -119,7 +119,7 @@ def main():
     parser.add_argument(
         "-s",
         "--suggestion",
-        help="get suggestion for a worf",
+        help="get suggestion for a word",
         action="store_true",
     )
     args = parser.parse_args()
@@ -133,7 +133,9 @@ def main():
         else:
             chn2eng(sentence)
 
+
 # TODO : use post request when trans long sentence
+
 
 def close_proxy():
     if "http_proxy" in os.environ:
