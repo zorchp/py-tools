@@ -1,13 +1,11 @@
 #!/opt/homebrew/Caskroom/miniforge/base/envs/py3x/bin/python3
 
-import re
 import os
-import sys
-from urllib.parse import quote
-
+import json
 import requests
+import argparse
 from requests.exceptions import RequestException, HTTPError
-
+from urllib.parse import quote
 from fake_useragent import UserAgent
 from lxml import etree
 
@@ -84,22 +82,60 @@ def chn2eng(kwd: str):
             print()
 
 
+def sugg(keyword):
+    base_url = "https://fanyi.sogou.com/reventondc/suggV3"
+    request_data = {
+        "from": "auto",
+        "to": "zh-CHS",
+        "text": keyword,
+        "pid": "sogou-dict-vr",
+        "addSugg": "on",
+    }
+    try:
+        r = requests.post(base_url, request_data)
+        r.raise_for_status()
+    except HTTPError as http_err:
+        print(f"error {http_err}")
+        exit(1)
+    except RequestException as err:
+        print(f"an error occur: {err}")
+        exit(2)
+
+    json_obj = json.loads(r.text)
+    if json_obj is None:
+        print("error: empty json object")
+        return
+    for item in json_obj["sugg"]:
+        print(f"{item['k']} : {item['v']}")
+
+
 def main():
-    argv = sys.argv
-    if len(argv) < 2:
-        print("Usage: trans <kwd>")
-        exit(-1)
-    sentence=""
-    for i in range(1, len(argv)):
-        sentence +=argv[i]
-    sentence = quote(sentence)
-    if sentence[0].isalnum():
-        eng2chn(sentence)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "word_or_sentence",
+        help="word(s) or sentence where you want to query",
+        nargs="*",  # limit may not out of 5000
+    )
+    parser.add_argument(
+        "-s",
+        "--suggestion",
+        help="get suggestion for a worf",
+        action="store_true",
+    )
+    args = parser.parse_args()
+    sentence = " ".join(args.word_or_sentence)
+    if args.suggestion:
+        sugg(sentence)
     else:
-        chn2eng(sentence)
+        sentence = quote(sentence)
+        if sentence[0].isalnum():
+            eng2chn(sentence)
+        else:
+            chn2eng(sentence)
 
+# TODO : use post request when trans long sentence
 
-if __name__ == "__main__":
+def close_proxy():
     if "http_proxy" in os.environ:
         del os.environ["http_proxy"]
     if "https_proxy" in os.environ:
@@ -107,4 +143,7 @@ if __name__ == "__main__":
     if "all_proxy" in os.environ:
         del os.environ["all_proxy"]
 
+
+if __name__ == "__main__":
+    close_proxy()
     main()
