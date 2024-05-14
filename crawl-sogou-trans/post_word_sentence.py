@@ -1,44 +1,99 @@
 #!/opt/homebrew/Caskroom/miniforge/base/envs/py3x/bin/python3
 
+'''
+ref to https://blog.csdn.net/m0_53342945/article/details/130240344
+1. get cookies contains FQV 
+2. post with FQV 
+3. parse result
+'''
+
 import sys
 import requests
 import json
+from fake_useragent import UserAgent
+
 
 from requests.exceptions import RequestException, HTTPError
 
 from pprint import pprint
 
+# requests.packages.urllib3.disable_warnings(
+#     requests.packages.urllib3.exceptions.InsecureRequestWarning
+# )
 
-def en2ch(word_or_sentence):
-    # for sentence
-    base_url = "https://fanyi.sogou.com/api/transpc/text/result"
-    # for word
-    # base_url = "https://fanyi.sogou.com/api/transpc/text/transword"
-    request_data = {
-        "fr": "browser_pc",
-        "client": "pc",
-        "exchange": False,
-        "needQc": 1,
-        "from": "en",
-        "s": "0e166f9b2a60dd8e418c80fccc931cff",
-        "to": "zh-CHS",
-        "text": word_or_sentence,
+session = requests.Session()
+
+
+def get_FQV():
+    headers = {
+        "Content-Type": "application/json",
+        "Host": "fanyi.sogou.com",
+        "Connection": "keep-alive",
+        "sec-ch-ua": '"Not-A.Brand";v="24", "Chromium";v="14"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.95 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Sec-Fetch-Dest": "document",
+        "Accept-Language": "zh-CN,zh;q=0.9",
     }
     try:
-        r = requests.post(
+        r = session.get(
+            "https://fanyi.sogou.com/",
+            headers=headers,
+        )
+        r.raise_for_status()
+    except HTTPError as http_err:
+        print(f"error {http_err}")
+        exit(1)
+    except RequestException as err:
+        print(f"an error occur: {err}")
+        exit(2)
+    # print(type(r.headers))
+    # pprint(r.headers)
+    cookies = r.headers["Set-Cookie"]
+    # print(cookies)
+    FQV = ""
+    for item in cookies.split(";"):
+        if "FQV" in item:
+            FQV = item.strip().split("FQV=")[1]
+            break
+    # return cookies
+    return FQV
+
+
+def trans(word, fqv, to="zh-CHS"):
+    base_url = "https://fanyi.sogou.com/api/transpc/text/transword"
+    request_data = {
+        "from": "auto",
+        "to": to,
+        "query": word,
+    }
+    ua = UserAgent()
+    headers = {
+        "Content-Type": "application/json",
+        "sec-ch-ua-mobile": "?0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.95 Safari/537.36",
+        # ua.random,
+        "sec-ch-ua-platform": '"Windows"',
+        "Origin": "https://fanyi.sogou.com",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "cors",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Cookie": f"FQV={fqv}",
+    }
+
+    try:
+        r = session.post(
             base_url,
-            # json=request_data,
-            json={
-                "from": "auto",
-                "to": "zh-CHS",
-                "text": "request",
-                "client": "pc",
-                "fr": "browser_pc",
-                "needQc": 1,
-                "s": "0e166f9b2a60dd8e418c80fccc931cff",
-                "uuid": "121fb327-7791-41ac-9337-0b12b59b244c",
-                "exchange": False,
-            },
+            json=request_data,
+            headers=headers,
+            timeout=30,
+            # verify=False,
         )
         r.raise_for_status()
     except HTTPError as http_err:
@@ -48,11 +103,23 @@ def en2ch(word_or_sentence):
         print(f"an error occur: {err}")
         exit(2)
 
-    print(r.text)
-    return
-    json_obj = json.loads(r.text)
-    for item in json_obj["sugg"]:
-        print(f"{item['k']} : {item['v']}")
+    # print(r.text)
+    json_obj = json.loads(r.text)["data"]
+    flg = True
+    if "phonetic" in json_obj:
+        flg = False
+        for item in json_obj["phonetic"]:
+            print(
+                f"{item['type'] if 'type' in item else ''} {item['text']}{', https:'+item['filename'] if 'filename' in item else ''}"
+            )
+    if "paraphrase" in json_obj:
+        flg = False
+        for item in json_obj["paraphrase"]:
+            print(
+                f"{item['pos']} {item['value']}  {item['text'] if 'text' in item else ''}"
+            )
+    if flg and "translation" in json_obj:
+        print(f"{json_obj['translation']['trans_text']}")
 
 
 def main():
@@ -60,7 +127,9 @@ def main():
     #     print("usage : tsg <word>")
     #     exit(-1)
     # sugg(sys.argv[1])
-    en2ch("hello")
+    fqv = get_FQV()
+    # trans("incognito is all my life ", fqv)
+    trans("你是谁", fqv)
 
 
 if __name__ == "__main__":
