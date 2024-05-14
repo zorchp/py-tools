@@ -1,20 +1,19 @@
 #!/opt/homebrew/Caskroom/miniforge/base/envs/py3x/bin/python3
 
-'''
+"""
 ref to https://blog.csdn.net/m0_53342945/article/details/130240344
 1. get cookies contains FQV 
 2. post with FQV 
 3. parse result
-'''
+"""
 
 import sys
 import requests
 import json
+import argparse
 from fake_useragent import UserAgent
-
-
 from requests.exceptions import RequestException, HTTPError
-
+from urllib.parse import quote
 from pprint import pprint
 
 # requests.packages.urllib3.disable_warnings(
@@ -66,7 +65,7 @@ def get_FQV():
     return FQV
 
 
-def trans(word, fqv, to="zh-CHS"):
+def trans(word, fqv, to):
     base_url = "https://fanyi.sogou.com/api/transpc/text/transword"
     request_data = {
         "from": "auto",
@@ -112,6 +111,7 @@ def trans(word, fqv, to="zh-CHS"):
             print(
                 f"{item['type'] if 'type' in item else ''} {item['text']}{', https:'+item['filename'] if 'filename' in item else ''}"
             )
+    print("=" * 50)
     if "paraphrase" in json_obj:
         flg = False
         for item in json_obj["paraphrase"]:
@@ -122,14 +122,67 @@ def trans(word, fqv, to="zh-CHS"):
         print(f"{json_obj['translation']['trans_text']}")
 
 
+def sugg(keyword):
+    base_url = "https://fanyi.sogou.com/reventondc/suggV3"
+    request_data = {
+        "from": "auto",
+        "to": "zh-CHS",
+        "text": keyword,
+        "pid": "sogou-dict-vr",
+        "addSugg": "on",
+    }
+    try:
+        r = requests.post(base_url, request_data)
+        r.raise_for_status()
+    except HTTPError as http_err:
+        print(f"error {http_err}")
+        exit(1)
+    except RequestException as err:
+        print(f"an error occur: {err}")
+        exit(2)
+
+    json_obj = json.loads(r.text)
+    if json_obj is None:
+        print("error: empty json object")
+        return
+    for item in json_obj["sugg"]:
+        print(f"{item['k']} : {item['v']}")
+
+
 def main():
-    # if len(sys.argv) != 2:
-    #     print("usage : tsg <word>")
-    #     exit(-1)
-    # sugg(sys.argv[1])
-    fqv = get_FQV()
-    # trans("incognito is all my life ", fqv)
-    trans("你是谁", fqv)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "word_or_sentence",
+        help="word(s) or sentence where you want to query",
+        nargs="*",  # limit may not out of 5000
+    )
+    parser.add_argument(
+        "-l",
+        "--language",
+        help="""
+which language you want to translate, default: Chinese, available language:
+1. ko Korean
+2. ja Japanese
+3. de German
+4. ar Arabic
+5. ru Russian
+6. fr French
+        """,
+        default="zh-CHS",
+    )
+    parser.add_argument(
+        "-s",
+        "--suggestion",
+        help="get suggestion for a word",
+        action="store_true",
+    )
+    args = parser.parse_args()
+    sentence = " ".join(args.word_or_sentence)
+    if args.suggestion:
+        sugg(sentence)
+    else:
+        # sentence = quote(sentence)
+        trans(sentence, get_FQV(), args.language)
 
 
 if __name__ == "__main__":
