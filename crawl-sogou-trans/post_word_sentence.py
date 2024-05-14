@@ -109,7 +109,7 @@ def trans(word, fqv, to):
         flg = False
         for item in json_obj["phonetic"]:
             print(
-                f"{item['type'] if 'type' in item else ''} {item['text']}{', https:'+item['filename'] if 'filename' in item else ''}"
+                f"{item['type'] if 'type' in item else ''} [{item['text']}]{', https:'+item['filename'] if 'filename' in item else ''}"
             )
     print("=" * 50)
     if "paraphrase" in json_obj:
