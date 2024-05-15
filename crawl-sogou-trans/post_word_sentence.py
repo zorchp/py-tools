@@ -7,6 +7,7 @@ ref to https://blog.csdn.net/m0_53342945/article/details/130240344
 3. parse result
 """
 
+import os
 import sys
 import requests
 import json
@@ -185,5 +186,15 @@ which language you want to translate, default: Chinese, available language:
         trans(sentence, get_FQV(), args.language)
 
 
+def remove_proxy():
+    if "http_proxy" in os.environ:
+        del os.environ["http_proxy"]
+    if "https_proxy" in os.environ:
+        del os.environ["https_proxy"]
+    if "all_proxy" in os.environ:
+        del os.environ["all_proxy"]
+
+
 if __name__ == "__main__":
+    remove_proxy()
     main()
