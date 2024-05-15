@@ -66,7 +66,7 @@ def get_FQV():
     return FQV
 
 
-def trans(word, fqv, to):
+def trans(word, fqv, to, show_audio_addr):
     base_url = "https://fanyi.sogou.com/api/transpc/text/transword"
     request_data = {
         "from": "auto",
@@ -110,7 +110,7 @@ def trans(word, fqv, to):
         flg = False
         for item in json_obj["phonetic"]:
             print(
-                f"{item['type'] if 'type' in item else ''} [{item['text']}]{', https:'+item['filename'] if 'filename' in item else ''}"
+                f"{item['type'] if 'type' in item else ''} [{item['text']}]{', https:'+item['filename'] if 'filename' in item and show_audio_addr else ''}"
             )
     print("=" * 50)
     if "paraphrase" in json_obj:
@@ -177,13 +177,21 @@ which language you want to translate, default: Chinese, available language:
         help="get suggestion for a word",
         action="store_true",
     )
+    parser.add_argument(
+        "-a",
+        "--audio_address",
+        help="show audio address or not, default: not",
+        action="store_true",
+        default=False,
+    )
     args = parser.parse_args()
     sentence = " ".join(args.word_or_sentence)
+    # print(args.audio_address)
     if args.suggestion:
         sugg(sentence)
     else:
         # sentence = quote(sentence)
-        trans(sentence, get_FQV(), args.language)
+        trans(sentence, get_FQV(), args.language, args.audio_address)
 
 
 def remove_proxy():
