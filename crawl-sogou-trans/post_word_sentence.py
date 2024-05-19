@@ -12,10 +12,13 @@ import sys
 import requests
 import json
 import argparse
-from fake_useragent import UserAgent
+import shutil
 from requests.exceptions import RequestException, HTTPError
-from urllib.parse import quote
-from pprint import pprint
+
+# from concurrent.futures import ThreadPoolExecutor  # for async play audio
+# from urllib.parse import quote
+# from pprint import pprint
+# from fake_useragent import UserAgent
 
 # requests.packages.urllib3.disable_warnings(
 #     requests.packages.urllib3.exceptions.InsecureRequestWarning
@@ -66,14 +69,14 @@ def get_FQV():
     return FQV
 
 
-def trans(word, fqv, to, show_audio_addr):
+def trans(word, fqv, to, audio_type):
     base_url = "https://fanyi.sogou.com/api/transpc/text/transword"
     request_data = {
         "from": "auto",
         "to": to,
         "query": word,
     }
-    ua = UserAgent()
+    # ua = UserAgent()
     headers = {
         "Content-Type": "application/json",
         "sec-ch-ua-mobile": "?0",
@@ -106,12 +109,17 @@ def trans(word, fqv, to, show_audio_addr):
     # print(r.text)
     json_obj = json.loads(r.text)["data"]
     flg = True
+    has_phonetic = False
     if "phonetic" in json_obj:
+        has_phonetic = True
         flg = False
+        # dict for audio
+        audio_list = {}
         for item in json_obj["phonetic"]:
-            print(
-                f"{item['type'] if 'type' in item else ''} [{item['text']}]{', https:'+item['filename'] if 'filename' in item and show_audio_addr else ''}"
-            )
+            if "type" in item and "filename" in item:
+                audio_list[item["type"]] = "https:" + item["filename"]
+                print(f"{item['type']} [{item['text']}]")
+
     print("=" * 50)
     if "paraphrase" in json_obj:
         flg = False
@@ -121,6 +129,8 @@ def trans(word, fqv, to, show_audio_addr):
             )
     if flg and "translation" in json_obj:
         print(f"{json_obj['translation']['trans_text']}")
+    if has_phonetic and audio_type is not None:
+        play_word_audio(audio_list[audio_type])
 
 
 def sugg(keyword):
@@ -150,6 +160,13 @@ def sugg(keyword):
         print(f"{item['k']} : {item['v']}")
 
 
+def play_word_audio(url):
+    if shutil.which("ffplay") is None:
+        print("You need to install ffmpeg and ffplay")
+        exit(-1)
+    os.system(f"ffplay -i {url} -nodisp -autoexit > /dev/null 2>&1")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -161,13 +178,13 @@ def main():
         "-l",
         "--language",
         help="""
-which language you want to translate, default: Chinese, available language:
-1. ko Korean
-2. ja Japanese
-3. de German
-4. ar Arabic
-5. ru Russian
-6. fr French
+which language you want to translate, default: Chinese, available language: \n
+1. ko Korean \n
+2. ja Japanese \n
+3. de German \n
+4. ar Arabic \n
+5. ru Russian \n
+6. fr French \n
         """,
         default="zh-CHS",
     )
@@ -178,11 +195,12 @@ which language you want to translate, default: Chinese, available language:
         action="store_true",
     )
     parser.add_argument(
-        "-a",
-        "--audio_address",
-        help="show audio address or not, default: not",
-        action="store_true",
-        default=False,
+        "-p",
+        "--play_audio",
+        help="play word audio by ffplay, default: usa",
+        nargs="?",  # optional argument
+        choices=["usa", "uk"],
+        const="usa",
     )
     args = parser.parse_args()
     sentence = " ".join(args.word_or_sentence)
@@ -191,7 +209,7 @@ which language you want to translate, default: Chinese, available language:
         sugg(sentence)
     else:
         # sentence = quote(sentence)
-        trans(sentence, get_FQV(), args.language, args.audio_address)
+        trans(sentence, get_FQV(), args.language, args.play_audio)
 
 
 def remove_proxy():
