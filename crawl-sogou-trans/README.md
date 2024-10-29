@@ -1,3 +1,3 @@
 ```bash
-sudo ln -s ./sogou_translator.py /usr/local/bin/ts
+ln -s /Users//xx/code//sogou_translator.py ~/local/bin/ts
 ```
