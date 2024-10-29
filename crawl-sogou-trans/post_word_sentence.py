@@ -117,7 +117,7 @@ def trans(word, fqv, to, audio_type):
         audio_list = {}
         for item in json_obj["phonetic"]:
             if "type" in item and "filename" in item:
-                audio_list[item["type"]] = "https:" + item["filename"]
+                audio_list[item["type"]] = item["filename"]
                 print(f"{item['type']} [{item['text']}]")
 
     print("=" * 50)
